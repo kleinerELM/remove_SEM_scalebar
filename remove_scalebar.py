@@ -48,6 +48,7 @@ outputDirName = "cut"
 showDebuggingOutput = False
 sortByPixelSize = 0
 addScaleBarImage = 0
+noImageJProcessing = False
 
 #### process given command line arguments
 def processArguments():
@@ -55,10 +56,11 @@ def processArguments():
     global showDebuggingOutput
     global sortByPixelSize
     global addScaleBarImage
+    global noImageJProcessing
     argv = sys.argv[1:]
-    usage = sys.argv[0] + " [-h] [-o] [-s] [-d]"
+    usage = sys.argv[0] + " [-h] [-o] [-s] [-p] [-d]"
     try:
-        opts, args = getopt.getopt(argv,"hsbo:d",[])
+        opts, args = getopt.getopt(argv,"hsbpo:d",[])
     except getopt.GetoptError:
         print( usage )
     for opt, arg in opts:
@@ -67,6 +69,7 @@ def processArguments():
             print( '-h,                  : show this help' )
             print( '-o,                  : setting output directory name [' + outputDirName + ']' )
             print( '-s,                  : sort output by pixel size [' + outputDirName + '/1.234nm/]' )
+            print( '-p,                  : remove scale bar using PIL (no ImageJ processing, -b is not doing anything)' )
             print( '-b,                  : create a jpg image with an included scale bar' )
             print( '-d                   : show debug output' )
             print( '' )
@@ -77,6 +80,9 @@ def processArguments():
         elif opt in ("-s"):
             sortByPixelSize = 1
             print( 'sorting output by pixel size' )
+        elif opt in ("-p"):
+            noImageJProcessing = True
+            print( 'remove scale bar using PIL (faster but no scaling for ImageJ)' )
         elif opt in ("-b"):
             addScaleBarImage = 1
             print( 'Will create an image including a scalebar' )
@@ -138,8 +144,37 @@ def scaleInMetaData( directory ):
     if ( result ) : print( ' [successfull]' ) #colored('hello', 'red'), colored('world', 'green')
     return result
 
+def removeScaleBarPIL( directory, filename ):
+    global metricScale
+    global pixelScale
+    global infoBarHeight
+    global outputDirName
+    global sortByPixelSize
+
+    targetDirectory = directory + "/cut/"
+    if ( sortByPixelSize == 1 ):
+        targetDirectory = targetDirectory + str( metricScale ) + "nm/"
+    
+    ## create output directory if it dows not exist
+    if not os.path.exists( targetDirectory ):
+        os.makedirs( targetDirectory )
+        
+    im = Image.open( directory + "/" + filename ) 
+    width, height = im.size 
+    
+    # Setting the points for cropped image 
+    left = 0
+    top = 0
+    right = width
+    bottom = height-infoBarHeight
+    
+    im1 = im.crop((left, top, right, bottom))
+    im1.convert('L').save( targetDirectory + filename , "TIFF")
+    im.close()
+    im1.close()
+
 #### remove the scalebar and set the image scale in ImageJ
-def setImageJScale( directory, file ):
+def setImageJScale( directory, filename ):
     global metricScale
     global pixelScale
     global infoBarHeight
@@ -174,6 +209,7 @@ if scaleInMetaData( workingDirectory ) :
     print( str(count) + " Tiffs found!" )
     ## run actual code
     if os.path.isdir( workingDirectory ) :
+        ## processing files
         for file in os.listdir(workingDirectory):
             if ( file.endswith(".tif") or file.endswith(".TIF")):
                 filename = os.fsdecode(file)
@@ -181,7 +217,12 @@ if scaleInMetaData( workingDirectory ) :
                 print( " Analysing " + filename + " (" + str(position) + "/" + str(count) + ") :" )
                 getPixelSizeFromMetaData( workingDirectory, filename, False )
                 getInfoBarHeightFromMetaData( workingDirectory, filename )
-                setImageJScale( workingDirectory, filename )
+                if ( noImageJProcessing ):
+                    ## use PIL to cut image
+                    removeScaleBarPIL( workingDirectory, filename )
+                else:
+                    ## use ImageJ to cut image
+                    setImageJScale( workingDirectory, filename )
 else:
     print( "no metadata found!" )
 
