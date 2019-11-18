@@ -10,17 +10,22 @@ macro "remove_SEMScaleBar" {
 		filePath 		= File.openDialog("Choose a file");
 		//define number of slices for uniformity analysis
 		outputDirName	 = "cut"
-		infoBarHeight	= 63; // height of the info bar at the bottom of SEM images
-		metricScale		= 0; // size for the scale bar in nm
-		pixelScale		= 0; // size for the scale bar in px
+		infoBarHeight	 = 63; // height of the info bar at the bottom of SEM images
+		metricScale		 = 0; // size for the scale bar in nm
+		pixelScale		 = 0; // size for the scale bar in px
+		sortByPixelSize  = 1;
+		addScaleBarImage = 0;
 	} else {
 		print("arguments found");
 		arg_split = split(getArgument(),"|");
-		filePath		= arg_split[0];
-		outputDirName	= arg_split[1];
-		infoBarHeight	= parseInt(arg_split[2]);
-		metricScale		= parseFloat(arg_split[3]);
-		pixelScale		= parseInt(arg_split[4]);
+		filePath		 = arg_split[0];
+		outputDirName	 = arg_split[1];
+		infoBarHeight 	 = parseInt(arg_split[2]);
+		metricScale		 = parseFloat(arg_split[3]);
+		pixelScale		 = parseInt(arg_split[4]);
+		sortByPixelSize  = parseInt(arg_split[5]);
+		addScaleBarImage = parseInt(arg_split[6]);
+
 	}
 	dir = File.getParent(filePath);
 	print("Starting process using the following arguments...");
@@ -39,12 +44,15 @@ macro "remove_SEMScaleBar" {
 	print("------------");
 	
 	//directory handling
-	outputDir_Cut = dir + "/" + outputDirName + "/";
+	outputDir_Cut = dir + "/" + outputDirName+ "/";
+	if ( sortByPixelSize == 1 ) {
+		outputDir_Cut = outputDir_Cut + scaleX + " nm/";
+	}
 	File.makeDirectory(outputDir_Cut);
 	list = getFileList(dir);
 	
 	// process only images
-	if (!endsWith(filePath,"/") && ( endsWith(filePath,".tif") || endsWith(filePath,".jpg") || endsWith(filePath,".JPG") ) ) {
+	if (!endsWith(filePath,"/") && endsWith(filePath,".tif")  ) {
 		open(filePath);
 		imageId = getImageID();
 		// get image id to be able to close the main image
@@ -56,6 +64,7 @@ macro "remove_SEMScaleBar" {
 			print( filename );
 			baseName		= substring(filename, 0, lengthOf(filename)-4);
 			cutName			= baseName + "-cut.tif";
+			scaleName		= baseName + "-scale.jpg";
 			
 			//////////////////////
 			// image constants
@@ -74,6 +83,16 @@ macro "remove_SEMScaleBar" {
 			run("Crop");
 			run("8-bit"); // convert to 8-bit-grayscale
 			saveAs("Tiff", outputDir_Cut + cutName );
+
+			//////////////////////
+			// add scalebar jpg
+			//////////////////////
+			if ( addScaleBarImage == 1 ) {
+				scaleWidth = 500; //nm
+				scaleHeight = round( 0.007 * height );
+				run("Scale Bar...", "width=" + scaleWidth + " height=" + scaleHeight + " font=25 color=White background=None location=[Lower Right] bold overlay");
+				saveAs("Jpeg", outputDir_Cut + scaleName );
+			}
 
 			//////////////////////
 			// close this file

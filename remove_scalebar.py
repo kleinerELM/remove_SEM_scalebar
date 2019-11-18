@@ -43,16 +43,22 @@ infoBarHeight = 63
 metricScale = 0
 pixelScale  = 0
 pixelSize = 0
+pixelSize = 0
 outputDirName = "cut"
 showDebuggingOutput = False
+sortByPixelSize = 0
+addScaleBarImage = 0
 
 #### process given command line arguments
 def processArguments():
     global outputDirName
+    global showDebuggingOutput
+    global sortByPixelSize
+    global addScaleBarImage
     argv = sys.argv[1:]
-    usage = sys.argv[0] + " [-h] [-o] [-d]"
+    usage = sys.argv[0] + " [-h] [-o] [-s] [-d]"
     try:
-        opts, args = getopt.getopt(argv,"ho:d",[])
+        opts, args = getopt.getopt(argv,"hsbo:d",[])
     except getopt.GetoptError:
         print( usage )
     for opt, arg in opts:
@@ -60,15 +66,22 @@ def processArguments():
             print( 'usage: ' + usage )
             print( '-h,                  : show this help' )
             print( '-o,                  : setting output directory name [' + outputDirName + ']' )
+            print( '-s,                  : sort output by pixel size [' + outputDirName + '/1.234nm/]' )
+            print( '-b,                  : create a jpg image with an included scale bar' )
             print( '-d                   : show debug output' )
             print( '' )
             sys.exit()
         elif opt in ("-o"):
             outputDirName = arg
             print( 'changed output directory to ' + outputDirName )
+        elif opt in ("-s"):
+            sortByPixelSize = 1
+            print( 'sorting output by pixel size' )
+        elif opt in ("-b"):
+            addScaleBarImage = 1
+            print( 'Will create an image including a scalebar' )
         elif opt in ("-d"):
             print( 'show debugging output' )
-            global showDebuggingOutput
             showDebuggingOutput = True
     print( '' )
 
@@ -125,16 +138,15 @@ def scaleInMetaData( directory ):
     if ( result ) : print( ' [successfull]' ) #colored('hello', 'red'), colored('world', 'green')
     return result
 
-#### run the actual code
-def analyseImages( directory, file ):
+#### remove the scalebar and set the image scale in ImageJ
+def setImageJScale( directory, file ):
     global metricScale
     global pixelScale
     global infoBarHeight
     global outputDirName
-    options = "|" + outputDirName + "|" + str(infoBarHeight) + "|" + str(metricScale) + "|" + str(pixelScale)
-    ##if ( file == "" ) :
-    ##    command = "ImageJ-win64.exe -macro \"" + home_dir +  "\\remove_scalebar.ijm\" \"" + directory + "/" + options + "\""
-    ##else:
+    global sortByPixelSize
+    global addScaleBarImage
+    options = "|" + outputDirName + "|" + str(infoBarHeight) + "|" + str(metricScale) + "|" + str(pixelScale) + "|" + str(sortByPixelSize) + "|" + str(addScaleBarImage)
     command = "ImageJ-win64.exe -macro \"" + home_dir +"\\remove_scalebar_single_file.ijm\" \"" + directory + "/" + filename + options + "\""
     print( "  starting ImageJ Macro...", end = '' )
     if ( showDebuggingOutput ) : print( command )
@@ -169,7 +181,7 @@ if scaleInMetaData( workingDirectory ) :
                 print( " Analysing " + filename + " (" + str(position) + "/" + str(count) + ") :" )
                 getPixelSizeFromMetaData( workingDirectory, filename, False )
                 getInfoBarHeightFromMetaData( workingDirectory, filename )
-                analyseImages( workingDirectory, filename )
+                setImageJScale( workingDirectory, filename )
 else:
     print( "no metadata found!" )
 

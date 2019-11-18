@@ -7,7 +7,7 @@ macro "remove_SEMScaleBar" {
 	// check if an external argument is given or define the options
 	arg = getArgument();
 	if ( arg == "" ) {
-		dir = getDirectory("Choose a Directory");	
+		dir = getDirectory("Choose a Directory");
 		//define number of slices for uniformity analysis
 		infoBarHeight	= 63; // height of the info bar at the bottom of SEM images
 		metricScale		= 0; // size for the scale bar in nm
@@ -58,6 +58,7 @@ macro "remove_SEMScaleBar" {
 				print( filename );
 				baseName		= substring(filename, 0, lengthOf(filename)-4);
 				cutName			= baseName + "-cut.tif";
+				scaleName		= baseName + "-scale.jpg";
 				
 				//////////////////////
 				// image constants
@@ -76,6 +77,14 @@ macro "remove_SEMScaleBar" {
 				run("Crop");
 				run("8-bit"); // convert to 8-bit-grayscale
 				saveAs("Tiff", outputDir_Cut + cutName );
+
+				//////////////////////
+				// add scalebar jpg
+				//////////////////////
+				scaleWidth = 500; //nm
+				scaleHeight = round( 0.007 * height );
+				run("Scale Bar...", "width=" + scaleWidth + " height=" + scaleHeight + " font=25 color=White background=None location=[Lower Right] bold overlay");
+				saveAs("Jpeg", outputDir_Cut + scaleName );
 
 				//////////////////////
 				// close this file
