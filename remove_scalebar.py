@@ -1,5 +1,5 @@
 #########################################################
-# Automated Scale removal for SEM images by 
+# Automated Scale removal for SEM images by
 # FEI / Thermofischer SEM devices
 #
 # © 2019 Florian Kleiner
@@ -11,7 +11,6 @@
 #
 #########################################################
 
-
 import csv
 import os, sys, getopt
 import subprocess
@@ -19,21 +18,23 @@ import math
 import tkinter as tk
 import mmap
 from PIL import Image
-from tkinter import filedialog
 from subprocess import check_output
+from tkinter import filedialog
+#remove root windows
+root = tk.Tk()
+root.withdraw()
 
 print("#########################################################")
 print("# Automatically remove scale bar and set scale for TIFF #")
 print("# images from FEI/Thermofischer Scientific SEM devices  #")
 print("# in a selected folder.                                 #")
 print("#                                                       #")
-print("# © 2019 Florian Kleiner                                #")
+print("# © 2020 Florian Kleiner                                #")
 print("#   Bauhaus-Universität Weimar                          #")
 print("#   Finger-Institut für Baustoffkunde                   #")
 print("#                                                       #")
 print("#########################################################")
 print()
-
 
 #### directory definitions
 home_dir = os.path.dirname(os.path.realpath(__file__))
@@ -49,6 +50,7 @@ showDebuggingOutput = False
 sortByPixelSize = 0
 addScaleBarImage = 0
 noImageJProcessing = False
+resultCSVTable = ""
 
 #### process given command line arguments
 def processArguments():
@@ -149,32 +151,33 @@ def removeScaleBarPIL( directory, filename ):
     global pixelScale
     global infoBarHeight
     global outputDirName
-    global sortByPixelSize
+    global resultCSVTable
 
-    targetDirectory = directory + "/cut/"
-    if ( sortByPixelSize == 1 ):
-        targetDirectory = targetDirectory + str( metricScale ) + "nm/"
-    
-    ## create output directory if it dows not exist
+    targetDirectory = directory + "/" + outputDirName + "/"
+
+    ## create output directory if it does not exist
     if not os.path.exists( targetDirectory ):
         os.makedirs( targetDirectory )
-        
-    im = Image.open( directory + "/" + filename ) 
-    width, height = im.size 
-    
-    # Setting the points for cropped image 
+
+    im = Image.open( directory + "/" + filename )
+    width, height = im.size
+
+
+    # Setting the points for cropped image
     left = 0
     top = 0
     right = width
     bottom = height-infoBarHeight
-    
+
     im1 = im.crop((left, top, right, bottom))
     im1.convert('L').save( targetDirectory + filename , "TIFF")
     im.close()
     im1.close()
 
+    resultCSVTable += filename + ',' + str( metricScale ) + ',' + str( infoBarHeight ) + "\n"
+
 #### remove the scalebar and set the image scale in ImageJ
-def setImageJScale( directory, filename ):
+""" def setImageJScale( directory, filename ):
     global metricScale
     global pixelScale
     global infoBarHeight
@@ -187,6 +190,26 @@ def setImageJScale( directory, filename ):
     if ( showDebuggingOutput ) : print( command )
     try:
         subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        if ( showDebuggingOutput ) : print( " possible error while closing ImageJ!", end = '' )
+        pass
+    print( " [done]") """
+    
+def setImageJScale( directory ):
+    global metricScale
+    global pixelScale
+    global infoBarHeight
+    global outputDirName
+    global addScaleBarImage
+    
+    targetDirectory = directory + "/" + outputDirName + "/"
+    
+    options = "|-|0|1|1|" + str(addScaleBarImage)
+    command = "ImageJ-win64.exe -macro \"" + home_dir +"\\remove_scalebar.ijm\" \"" + targetDirectory + options + "\""
+    print( " starting ImageJ Macro...", end = '' )
+    if ( showDebuggingOutput ) : print( command )
+    try:
+        subprocess.check_output( command, shell=True, stderr=subprocess.STDOUT )
     except subprocess.CalledProcessError as e:
         if ( showDebuggingOutput ) : print( " possible error while closing ImageJ!", end = '' )
         pass
@@ -217,12 +240,42 @@ if scaleInMetaData( workingDirectory ) :
                 print( " Analysing " + filename + " (" + str(position) + "/" + str(count) + ") :" )
                 getPixelSizeFromMetaData( workingDirectory, filename, False )
                 getInfoBarHeightFromMetaData( workingDirectory, filename )
-                if ( noImageJProcessing ):
-                    ## use PIL to cut image
-                    removeScaleBarPIL( workingDirectory, filename )
-                else:
-                    ## use ImageJ to cut image
-                    setImageJScale( workingDirectory, filename )
+                removeScaleBarPIL( workingDirectory, filename )
+
+        targetDirectoryParent = workingDirectory + "/" + outputDirName + "/"
+        scalingCSV = "scaling.csv"
+        if ( showDebuggingOutput ) : print( ' writing result CSV: ' + scalingCSV )
+        csv_result_file = open( targetDirectoryParent + scalingCSV, 'w' )
+        
+        csv_result_file.write( resultCSVTable )
+
+        csv_result_file.close()
+        setImageJScale( workingDirectory )
+
+        if ( sortByPixelSize == 1 ):
+            print( " Moving files to their target directories..." )
+            for file in os.listdir(workingDirectory):
+                if ( file.endswith(".tif") or file.endswith(".TIF")):
+                    filename = os.fsdecode(file)
+                    getPixelSizeFromMetaData( workingDirectory, filename, False )
+
+                    srcFile = targetDirectoryParent + filename
+                    targetDirectory = targetDirectoryParent + str( metricScale ) + "nm/"
+                    
+                    ## create output directory if it does not exist
+                    if not os.path.exists( targetDirectory ):
+                        os.makedirs( targetDirectory )
+                    
+                    if ( os.path.isfile( targetDirectory + filename ) ) : 
+                        if ( showDebuggingOutput ) : print( "  overwriting file" )
+                        os.remove( targetDirectory + filename )
+
+                    os.rename(srcFile, targetDirectory + filename )
+                    if ( showDebuggingOutput ) : print( "  moved " + filename )
+
+        #if ( showDebuggingOutput ) : print( "not deleting " + scalingCSV )
+        #if ( not showDebuggingOutput ) : os.remove( targetDirectoryParent + scalingCSV )
+            
 else:
     print( "no metadata found!" )
 
