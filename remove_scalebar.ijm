@@ -36,8 +36,14 @@ macro "remove_SEMScaleBar" {
 	print("  Directory: " + dir );
 	print("  outputDirName: " + outputDirName );
 	print("  argument based image-scale: " + pixelScale + " px / " + metricScale + " nm");
-    if ( addScaleBarImage ) {
-        print( "  jpg image including a scalebar will be created" );
+    if ( addScaleBarImage > 0 ) {
+		if ( addScaleBarImage == 2 ) {
+			print( "  jpg image including a medium scalebar will be created" );
+		} else if ( addScaleBarImage == 3 ) {
+			print( "  jpg image including a large scalebar will be created" );
+		} else {
+			print( "  jpg image including a small scalebar will be created" );
+		}
     } else {
         print( "  no jpg image including a scalebar will be created" );
     }
@@ -98,6 +104,7 @@ macro "remove_SEMScaleBar" {
 				baseName		= substring( filename, 0, lengthOf( filename ) - 4 );
 				cutName			= baseName + "-cut.tif";
 				scaleName		= baseName + "-scale.jpg";
+				scaleEnhName		= baseName + "-enh-scale.jpg";
 				
 				//////////////////////
 				// read out scaling from CSV
@@ -124,8 +131,20 @@ macro "remove_SEMScaleBar" {
 				width			= getWidth();
 				height			= getHeight();
 				if ( do_scaling ) {
-                    print( "  Set Scale to " + metricScale + " nm/px " );
-					run("Set Scale...", "distance=" + pixelScale + " known=" + metricScale + " pixel=1 unit=nm");
+					unit = "nm";
+					scaledImageWidth = width * metricScale;
+					
+					if ( scaledImageWidth > 1500000  ) { // to mm
+						metricScale = metricScale / 1000000;
+						unit = "mm";
+					} else if ( scaledImageWidth > 1500 ) { // to micrometer
+						mu = fromCharCode(181);
+						metricScale = metricScale / 1000;
+						unit = mu + "m";
+					}
+					scaledImageWidth = width * metricScale;
+					print( "  Set Scale to " + metricScale + " " + unit + "/px " );
+					run("Set Scale...", "distance=" + pixelScale + " known=" + metricScale + " pixel=1 unit=" + unit);
 				}
 				
 				//////////////////////
@@ -134,7 +153,7 @@ macro "remove_SEMScaleBar" {
 				if ( infoBarHeight > 0 ) {
 					print( "  cropping image bar (height: " + infoBarHeight + " px)" );
 					makeRectangle(0, 0, width, height-infoBarHeight); // remove info bar
-                    print( "  saving file as " + cutName + " ..." );
+					print( "  saving file as " + cutName + " ..." );
 					run("Crop");
 					run("8-bit"); // convert to 8-bit-grayscale
 				}
@@ -143,11 +162,27 @@ macro "remove_SEMScaleBar" {
 				//////////////////////
 				// add scalebar jpg
 				//////////////////////
-				if ( addScaleBarImage ) {
-					scaleWidth = 500; //nm
-					scaleHeight = round( 0.007 * height );
-					run("Scale Bar...", "width=" + scaleWidth + " height=" + scaleHeight + " font=25 color=White background=None location=[Lower Right] bold overlay");
+				if ( addScaleBarImage > 0 && do_scaling ) {
+					scaleWidth = 1;
+					if ( scaledImageWidth > 700 ){
+						scaleWidth = 500; //nm
+					} else if ( scaledImageWidth > 300 ){
+						scaleWidth = 250; //nm
+					} else if ( scaledImageWidth > 120 ){
+						scaleWidth = 100; //nm
+					} else if ( scaledImageWidth > 120 ){
+						scaleWidth = 100; //nm
+					} else if ( scaledImageWidth > 12 ){
+						scaleWidth = 10; //nm
+					} else if ( scaledImageWidth >= 6 ) {
+						scaleWidth = 5; //nm
+					} 
+					scaleHeight = round( addScaleBarImage * 0.007 * height );
+					fontSize = 4 * scaleHeight;
+					run("Scale Bar...", "width=" + scaleWidth + " height=" + scaleHeight + " font=" + fontSize + " color=White background=None location=[Lower Right] bold overlay");
 					saveAs("Jpeg", outputDir_Cut + scaleName );
+					run("Enhance Contrast...", "saturated=0.3 normalize");
+					saveAs("Jpeg", outputDir_Cut + scaleEnhName );
 				}
 
 				//////////////////////
