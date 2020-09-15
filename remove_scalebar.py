@@ -258,10 +258,7 @@ if __name__ == '__main__':
 
                         os.rename(srcFile, targetDirectoryPerScale + filename )
                         if settings["showDebuggingOutput"]: print( "  moved " + filename )
-
-            #if ( showDebuggingOutput ) : print( "not deleting " + scalingCSV )
-            #if ( not showDebuggingOutput ) : os.remove( targetDirectoryParent + scalingCSV )
-                
+               
     else:
         print( "no metadata found!" )
 
