@@ -135,7 +135,7 @@ def getInfoBarHeightFromMetaData( directory, filename, verbose=False ):
         ## get actual image size of the TIFF
         im = Image.open( directory + os.sep + filename )
         width, height = im.size
-        ## calculate the difference, which is the info bar heigt
+        ## calculate the difference, which is the info bar height
         infoBarHeight = int( height - contentHeight )
         if verbose: print( "  detected info bar height: {} px".format(infoBarHeight) )# + str( height ) + '|' + str(contentHeight))
     else:
