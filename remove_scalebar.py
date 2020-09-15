@@ -47,56 +47,65 @@ def programInfo():
     print("#########################################################")
     print()
 
+
+def getBaseSettings():
+    settings = {
+        "showDebuggingOutput" : False,
+        "home_dir"            : os.path.dirname(os.path.realpath(__file__)),
+        "workingDirectory"    : "",
+        "outputDirectory"     : "cut",
+        "addScaleBarImage"    : 0,
+        "createResultCSV"     : False,
+        "sortByPixelSize"     : 1
+    }
+    return settings
+
 #### process given command line arguments
 def processArguments():
-    global outputDirName
-    global showDebuggingOutput
-    global sortByPixelSize
-    global addScaleBarImage
-    global noImageJProcessing
+    settings = getBaseSettings()
     argv = sys.argv[1:]
-    usage = sys.argv[0] + " [-h] [-o] [-s] [-p] [-d]"
+    usage = sys.argv[0] + " [-h] [-o] [-s] [-d]"
     try:
-        opts, args = getopt.getopt(argv,"hsb:po:d",[])
+        opts, args = getopt.getopt(argv,"hso:d",[])
     except getopt.GetoptError:
         print( usage )
     for opt, arg in opts:
         if opt == '-h':
             print( 'usage: ' + usage )
             print( '-h,                  : show this help' )
-            print( '-o,                  : setting output directory name [' + outputDirName + ']' )
-            print( '-s,                  : sort output by pixel size [' + outputDirName + '/1.234nm/]' )
-            print( '-p,                  : remove scale bar using PIL (no ImageJ processing, -b is not doing anything)' )
-            print( '-b,                  : create a jpg image with an included scale bar [' + str( addScaleBarImage ) + ']' )
-            print( '                       scale bar size: 1 = small, 2 = medium, 3 = large' )
+            print( '-o,                  : setting output directory name [{}]'.format(settings["outputDirectory"]) )
+            print( '-s,                  : sort output by pixel size [{}/1.234nm/]'.format(settings["outputDirectory"] ))
+            #print( '-p,                  : remove scale bar using PIL (no ImageJ processing, -b is not doing anything)' )
+            #print( '-b,                  : create a jpg image with an included scale bar [{}]'.format(settings["addScaleBarImage"] )
+            #print( '                       scale bar size: 1 = small, 2 = medium, 3 = large' )
             print( '-d                   : show debug output' )
             print( '' )
             sys.exit()
         elif opt in ("-o"):
-            outputDirName = arg
-            print( 'changed output directory to ' + outputDirName )
+            settings["outputDirectory"] = arg
+            print( 'changed output directory to ' + settings["outputDirectory"] )
         elif opt in ("-s"):
-            sortByPixelSize = 1
+            settings["sortByPixelSize"] = 1
             print( 'sorting output by pixel size' )
-        elif opt in ("-p"):
-            noImageJProcessing = True
-            print( 'remove scale bar using PIL (faster but no scaling for ImageJ)' )
+        #elif opt in ("-p"):
+        #    noImageJProcessing = True
+        #    print( 'remove scale bar using PIL (faster but no scaling for ImageJ)' )
         elif opt in ("-b"):
-            addScaleBarImage = int( arg )
-            if ( addScaleBarImage == 3 ):
+            settings["addScaleBarImage"] = int( arg )
+            if ( settings["addScaleBarImage"] == 3 ):
                 print( 'Will create an image including a large scalebar' )
-            if ( addScaleBarImage == 2 ):
+            if ( settings["addScaleBarImage"] == 2 ):
                 print( 'Will create an image including a medium scalebar' )
             else:
                 print( 'Will create an image including a small scalebar' )
         elif opt in ("-d"):
             print( 'show debugging output' )
-            showDebuggingOutput = True
+            settings["showDebuggingOutput"] = True
     print( '' )
+    return settings
 
 #### searching for a set pixel scale in the metadata of the TIFF
-def getPixelSizeFromMetaData( directory, filename, silent ):
-    global pixelSize
+def getPixelSizeFromMetaData( directory, filename, verbose=False ):
     global metricScale
     global pixelScale
     pixelSize = 0
@@ -108,13 +117,13 @@ def getPixelSizeFromMetaData( directory, filename, silent ):
             pixelSize = float( tempLine.split("\\",1)[0] )*1000000000
             pixelScale = 1
             metricScale = pixelSize
-            if ( not silent ) : print( "  detected image scale: " + str( pixelSize ) + " nm / px" )
+            if ( verbose ) : print( "  detected image scale: {} nm / px".format(pixelSize) )
     return pixelSize
 
 #### determining the height of the info / scale bar in the TIFF
-def getInfoBarHeightFromMetaData( directory, filename ):
+def getInfoBarHeightFromMetaData( directory, filename, verbose=False ):
     contentHeight = 0
-    global infoBarHeight
+    infoBarHeight = 63
     with open(directory + os.sep + filename, 'rb', 0) as file, \
         mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as s:
         ## get original image height
@@ -128,14 +137,13 @@ def getInfoBarHeightFromMetaData( directory, filename ):
         width, height = im.size
         ## calculate the difference, which is the info bar heigt
         infoBarHeight = int( height - contentHeight )
-        print( "  detected info bar height: " + str( infoBarHeight ) + " px" )# + str( height ) + '|' + str(contentHeight))
+        if verbose: print( "  detected info bar height: {} px".format(infoBarHeight) )# + str( height ) + '|' + str(contentHeight))
     else:
-        print( "  info bar height not detected" )
+        if verbose: print( "  info bar height not detected" )
     return infoBarHeight
 
 #### check if the expected metadata in the first file of a directory is present
 def scaleInMetaData( directory ):
-    global infoBarHeight
     result = False
     if os.path.isdir(directory):
         for file in os.listdir(directory):
@@ -149,24 +157,15 @@ def scaleInMetaData( directory ):
     if ( result ) : print( ' [successfull]' ) #colored('hello', 'red'), colored('world', 'green')
     return result
 
-def removeScaleBarPIL( directory, filename, scale ):
-    global metricScale
-    global pixelScale
-    global infoBarHeight
-    global outputDirName
-    global resultCSVTable
-
-    targetDirectory = directory + os.sep + outputDirName + os.sep
+def removeScaleBarPIL( directory, filename, targetDirectory, infoBarHeight=False, scaling=False, verbose=False ):
+    if infoBarHeight==False: infoBarHeight = getInfoBarHeightFromMetaData( directory, filename, verbose=verbose )
 
     ## create output directory if it does not exist
     if not os.path.exists( targetDirectory ):
         os.makedirs( targetDirectory )
 
-    im = Image.open( directory + "/" + filename )
+    im = Image.open( directory + os.sep + filename )
     width, height = im.size
-
-    
-    scaling = { 'x' : scale, 'y' : scale, 'unit' : 'nm'}
 
     # Setting the points for cropped image
     left = 0
@@ -175,9 +174,17 @@ def removeScaleBarPIL( directory, filename, scale ):
     bottom = height-infoBarHeight
 
     im1 = im.crop((left, top, right, bottom))
-    im1.convert('L').save( targetDirectory + filename , "TIFF", tiffinfo = ts.setImageJScaling( scaling ))
+    if scaling == False:
+        im1.convert('L').save( targetDirectory + filename , "TIFF")
+    else:
+        im1.convert('L').save( targetDirectory + filename , "TIFF", tiffinfo = ts.setImageJScaling( scaling ))
     im.close()
     im1.close()
+    return 
+
+def extendCSVTable(infoBarHeight=63):
+    global metricScale
+    global resultCSVTable
 
     resultCSVTable += filename + ',' + str( metricScale ) + ',' + str( infoBarHeight ) + "\n"
 
@@ -188,76 +195,69 @@ if __name__ == '__main__':
     root.withdraw()
 
     #### global var definitions
-    infoBarHeight = 63
     metricScale = 0
     pixelScale  = 0
-    pixelSize = 0
-    pixelSize = 0
-    outputDirName = "cut"
-    showDebuggingOutput = False
-    sortByPixelSize = 0
-    addScaleBarImage = 0
-    noImageJProcessing = False
-    createResultCSV = False
     resultCSVTable = ""
 
     programInfo()
 
-    processArguments()
-    if ( showDebuggingOutput ) : print( "I am living in '{}'".format(home_dir) )
-    workingDirectory = filedialog.askdirectory(title='Please select the image / working directory')
-    if ( showDebuggingOutput ) : print( "Selected working directory: " + workingDirectory )
+    settings = processArguments()
+    if settings["showDebuggingOutput"]: print( "I am living in '{}'".format(settings["home_dir"]) )
+    settings["workingDirectory"]  = filedialog.askdirectory(title='Please select the image / working directory')
+    if settings["showDebuggingOutput"]: print( "Selected working directory: " + settings["workingDirectory"]  )
 
-    if scaleInMetaData( workingDirectory ) :
+    if scaleInMetaData( settings["workingDirectory"]  ) :
         count = 0
         position = 0
         ## count files
-        if os.path.isdir( workingDirectory ) :
-            for file in os.listdir(workingDirectory):
+        if os.path.isdir( settings["workingDirectory"]  ) :
+            for file in os.listdir(settings["workingDirectory"] ):
                 if ( file.endswith(".tif") or file.endswith(".TIF")):
                     count = count + 1
         print( "{} Tiffs found!".format(count) )
         ## run actual code
-        if os.path.isdir( workingDirectory ) :
+        if os.path.isdir( settings["workingDirectory"]  ) :
+            targetDirectory = settings["workingDirectory"] + os.sep + settings["outputDirectory"] + os.sep
             ## processing files
-            for file in os.listdir(workingDirectory):
+            for file in os.listdir(settings["workingDirectory"] ):
                 if ( file.endswith(".tif") or file.endswith(".TIF")):
                     filename = os.fsdecode(file)
                     position = position + 1
-                    print( " Analysing {} ({}/{}) :".format(filename,position,count) )
-                    scale = getPixelSizeFromMetaData( workingDirectory, filename, False )
-                    getInfoBarHeightFromMetaData( workingDirectory, filename )
-                    removeScaleBarPIL( workingDirectory, filename, scale )                    
+                    print( " Analysing {} ({}/{}) :".format(filename, position, count) )
+                    infoBarHeight = getInfoBarHeightFromMetaData( settings["workingDirectory"], filename, verbose=settings["showDebuggingOutput"] )
+                    scale = getPixelSizeFromMetaData( settings["workingDirectory"] , filename )
+                    scaling = { 'x' : scale, 'y' : scale, 'unit' : 'nm'}
+                    removeScaleBarPIL( settings["workingDirectory"], filename, targetDirectory, infoBarHeight, scaling )
+                    if settings["createResultCSV"]: extendCSVTable(infoBarHeight)            
 
-            targetDirectoryParent = workingDirectory + os.sep + outputDirName + os.sep
-            if createResultCSV:
+            if settings["createResultCSV"]:
                 scalingCSV = "scaling.csv"
-                if ( showDebuggingOutput ) : print( ' writing result CSV: ' + scalingCSV )
-                csv_result_file = open( targetDirectoryParent + scalingCSV, 'w' )
+                if settings["showDebuggingOutput"]: print( ' writing result CSV: ' + scalingCSV )
+                csv_result_file = open( targetDirectory + scalingCSV, 'w' )
                 csv_result_file.write( resultCSVTable )
                 csv_result_file.close()
                 #setImageJScale( workingDirectory )
 
-            if ( sortByPixelSize == 1 ):
+            if ( settings["sortByPixelSize"] == 1 ):
                 print( " Moving files to their target directories..." )
-                for file in os.listdir(workingDirectory):
+                for file in os.listdir(settings["workingDirectory"]):
                     if ( file.endswith(".tif") or file.endswith(".TIF")):
                         filename = os.fsdecode(file)
-                        getPixelSizeFromMetaData( workingDirectory, filename, False )
+                        getPixelSizeFromMetaData( settings["workingDirectory"], filename )
 
-                        srcFile = targetDirectoryParent + filename
-                        targetDirectory = targetDirectoryParent + str( metricScale ) + "nm" + os.sep
+                        srcFile = targetDirectory + filename
+                        targetDirectoryPerScale = targetDirectory + str( metricScale ) + "nm" + os.sep
                         
                         ## create output directory if it does not exist
-                        if not os.path.exists( targetDirectory ):
-                            os.makedirs( targetDirectory )
+                        if not os.path.exists( targetDirectoryPerScale ):
+                            os.makedirs( targetDirectoryPerScale )
                         
-                        if ( os.path.isfile( targetDirectory + filename ) ) : 
-                            if ( showDebuggingOutput ) : print( "  overwriting file" )
-                            os.remove( targetDirectory + filename )
+                        if ( os.path.isfile( targetDirectoryPerScale + filename ) ) : 
+                            if settings["showDebuggingOutput"]: print( "  overwriting file" )
+                            os.remove( targetDirectoryPerScale + filename )
 
-                        os.rename(srcFile, targetDirectory + filename )
-                        if ( showDebuggingOutput ) : print( "  moved " + filename )
+                        os.rename(srcFile, targetDirectoryPerScale + filename )
+                        if settings["showDebuggingOutput"]: print( "  moved " + filename )
 
             #if ( showDebuggingOutput ) : print( "not deleting " + scalingCSV )
             #if ( not showDebuggingOutput ) : os.remove( targetDirectoryParent + scalingCSV )
