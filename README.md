@@ -5,7 +5,7 @@ simple script to remove scale and info bar at the bottom of SEM images aquired u
 
 run 
 ```bash
-python .\remove_scalebar.py
+python .\remove_SEM_scalebar.py
 ```
 
 and select the working directory containing the TIF images aquired by a FEI / thermofischer scientific SEM software. It will automatically scan for the typical metadata at the end of the image. The scale will be read out and the size of the info bar will be calculated and removed using an ImageJ macro.
@@ -20,13 +20,13 @@ Help output of the python script:
 # images from FEI/Thermofischer Scientific SEM devices  #
 # in a selected folder.                                 #
 #                                                       #
-# © 2019 Florian Kleiner                                #
+# © 2021 Florian Kleiner                                #
 #   Bauhaus-Universität Weimar                          #
 #   Finger-Institut für Baustoffkunde                   #
 #                                                       #
 #########################################################
 
-usage: D:\Nextcloud\Uni\WdB\REM\Fiji Plugins & Macros\Selbstgeschrieben\remove_scalebar\remove_scalebar.py [-h] [-o] [-s] [-p] [-d]
+usage: D:\Nextcloud\Uni\WdB\REM\Fiji Plugins & Macros\Selbstgeschrieben\remove_scalebar\remove_SEM_scalebar.py [-h] [-o] [-s] [-p] [-d]
 -h,                  : show this help
 -o,                  : setting output directory name [cut]
 -s,                  : sort output by pixel size [cut/1.234nm/]

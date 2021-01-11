@@ -2,7 +2,7 @@
 # Automated Scale removal for SEM images by
 # FEI / Thermofischer SEM devices
 #
-# © 2019 Florian Kleiner
+# © 2021 Florian Kleiner
 #   Bauhaus-Universität Weimar
 #   Finger-Institut für Baustoffkunde
 #
@@ -40,7 +40,7 @@ def programInfo():
     print("# images from FEI/Thermofischer Scientific SEM devices  #")
     print("# in a selected folder.                                 #")
     print("#                                                       #")
-    print("# © 2020 Florian Kleiner                                #")
+    print("# © 2021 Florian Kleiner                                #")
     print("#   Bauhaus-Universität Weimar                          #")
     print("#   Finger-Institut für Baustoffkunde                   #")
     print("#                                                       #")
