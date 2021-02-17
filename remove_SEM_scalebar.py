@@ -157,7 +157,7 @@ def scaleInMetaData( directory ):
     if ( result ) : print( ' [successfull]' ) #colored('hello', 'red'), colored('world', 'green')
     return result
 
-def removeScaleBarPIL( directory, filename, targetDirectory, infoBarHeight=False, scaling=False, verbose=False ):
+def removeScaleBarPIL( directory, filename, targetDirectory, infoBarHeight=False, scaling=False, verbose=False, return_image=False ):
     if infoBarHeight==False: infoBarHeight = getInfoBarHeightFromMetaData( directory, filename, verbose=verbose )
 
     ## create output directory if it does not exist
@@ -173,14 +173,26 @@ def removeScaleBarPIL( directory, filename, targetDirectory, infoBarHeight=False
     right = width
     bottom = height-infoBarHeight
 
-    im1 = im.crop((left, top, right, bottom))
+    cropped = im.crop((left, top, right, bottom))
     if scaling == False:
-        im1.convert('L').save( targetDirectory + filename , "TIFF")
+        cropped.convert('L').save( targetDirectory + filename , "TIFF")
     else:
-        im1.convert('L').save( targetDirectory + filename , "TIFF", tiffinfo = ts.setImageJScaling( scaling ))
+        cropped.convert('L').save( targetDirectory + filename , "TIFF", tiffinfo = ts.setImageJScaling( scaling ))
     im.close()
-    im1.close()
-    return 
+    if return_image:
+        return cropped
+    else:
+        cropped.close()
+        return True
+
+# process image without saving the image, return an image object
+def removeScaleBarCV( image, infoBarHeight=False ):
+    if infoBarHeight==False:
+        print('warning: infoBarHeight unknown! Assuming 0')
+        infoBarHeight = 0
+    height, width = image.shape[:2]
+    cropped = image[0:height-infoBarHeight, 0:width]
+    return cropped
 
 def extendCSVTable(infoBarHeight=63):
     global metricScale
@@ -228,7 +240,7 @@ if __name__ == '__main__':
                     scale = getPixelSizeFromMetaData( settings["workingDirectory"] , filename )
                     scaling = { 'x' : scale, 'y' : scale, 'unit' : 'nm'}
                     removeScaleBarPIL( settings["workingDirectory"], filename, targetDirectory, infoBarHeight, scaling )
-                    if settings["createResultCSV"]: extendCSVTable(infoBarHeight)            
+                    if settings["createResultCSV"]: extendCSVTable(infoBarHeight)
 
             if settings["createResultCSV"]:
                 scalingCSV = "scaling.csv"
@@ -247,18 +259,18 @@ if __name__ == '__main__':
 
                         srcFile = targetDirectory + filename
                         targetDirectoryPerScale = targetDirectory + str( metricScale ) + "nm" + os.sep
-                        
+
                         ## create output directory if it does not exist
                         if not os.path.exists( targetDirectoryPerScale ):
                             os.makedirs( targetDirectoryPerScale )
-                        
-                        if ( os.path.isfile( targetDirectoryPerScale + filename ) ) : 
+
+                        if ( os.path.isfile( targetDirectoryPerScale + filename ) ) :
                             if settings["showDebuggingOutput"]: print( "  overwriting file" )
                             os.remove( targetDirectoryPerScale + filename )
 
                         os.rename(srcFile, targetDirectoryPerScale + filename )
                         if settings["showDebuggingOutput"]: print( "  moved " + filename )
-               
+
     else:
         print( "no metadata found!" )
 
