@@ -24,10 +24,10 @@ from tkinter import filedialog
 home_dir = os.path.dirname(os.path.realpath(__file__))
 
 ts_path = os.path.dirname( home_dir ) + os.sep + 'tiff_scaling' + os.sep
-ts_file = 'set_tiff_scaling'
+ts_file = 'extract_tiff_scaling'
 if ( os.path.isdir( ts_path ) and os.path.isfile( ts_path + ts_file + '.py' ) or os.path.isfile( home_dir + ts_file + '.py' ) ):
     if ( os.path.isdir( ts_path ) ): sys.path.insert( 1, ts_path )
-    import set_tiff_scaling as ts
+    import extract_tiff_scaling as ts
 else:
     programInfo()
     print( 'missing ' + ts_path + ts_file + '.py!' )
@@ -56,7 +56,7 @@ def getBaseSettings():
         "outputDirectory"     : "cut",
         "addScaleBarImage"    : 0,
         "createResultCSV"     : False,
-        "sortByPixelSize"     : 1
+        "sortByPixelSize"     : 0
     }
     return settings
 
@@ -157,7 +157,7 @@ def scaleInMetaData( directory ):
     if ( result ) : print( ' [successfull]' ) #colored('hello', 'red'), colored('world', 'green')
     return result
 
-def removeScaleBarPIL( directory, filename, targetDirectory, infoBarHeight=False, scaling=False, verbose=False, return_image=False ):
+def removeScaleBarPIL( directory, filename, targetDirectory, infoBarHeight=False, verbose=False, return_image=False ):
     if infoBarHeight==False: infoBarHeight = getInfoBarHeightFromMetaData( directory, filename, verbose=verbose )
 
     ## create output directory if it does not exist
@@ -173,11 +173,13 @@ def removeScaleBarPIL( directory, filename, targetDirectory, infoBarHeight=False
     right = width
     bottom = height-infoBarHeight
 
+    UC = ts.unit()
+    scaling = ts.autodetectScaling( filename, directory )
     cropped = im.crop((left, top, right, bottom))
-    if scaling == False:
+    if scaling['editor'] == None:
         cropped.convert('L').save( targetDirectory + filename , "TIFF")
     else:
-        cropped.convert('L').save( targetDirectory + filename , "TIFF", tiffinfo = ts.setImageJScaling( scaling ))
+        cropped.convert('L').save( targetDirectory + filename , "TIFF", tiffinfo = UC.setImageJScaling( scaling ))
     im.close()
     if return_image:
         return cropped
@@ -237,9 +239,9 @@ if __name__ == '__main__':
                     position = position + 1
                     print( " Analysing {} ({}/{}) :".format(filename, position, count) )
                     infoBarHeight = getInfoBarHeightFromMetaData( settings["workingDirectory"], filename, verbose=settings["showDebuggingOutput"] )
-                    scale = getPixelSizeFromMetaData( settings["workingDirectory"] , filename )
-                    scaling = { 'x' : scale, 'y' : scale, 'unit' : 'nm'}
-                    removeScaleBarPIL( settings["workingDirectory"], filename, targetDirectory, infoBarHeight, scaling )
+                    #scale = getPixelSizeFromMetaData( settings["workingDirectory"] , filename )
+                    #scaling = { 'x' : scale, 'y' : scale, 'unit' : 'nm'}
+                    removeScaleBarPIL( settings["workingDirectory"], filename, targetDirectory, infoBarHeight )
                     if settings["createResultCSV"]: extendCSVTable(infoBarHeight)
 
             if settings["createResultCSV"]:
