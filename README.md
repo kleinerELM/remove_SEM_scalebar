@@ -1,9 +1,12 @@
 # remove_SEM_scalebar
-simple script to remove scale and info bar at the bottom of SEM images aquired using a FEI / thermofischer scientific SEM 
+
+__This Script is depricated! The functionality is mostly included in `tiff_scaling`__
+
+simple script to remove scale and info bar at the bottom of SEM images aquired using a FEI / thermofischer scientific SEM
 
 ## standard automatical processing
 
-run 
+run
 ```bash
 python .\remove_SEM_scalebar.py
 ```
